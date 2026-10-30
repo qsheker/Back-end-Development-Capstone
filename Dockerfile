@@ -1,26 +1,11 @@
-# 1. insert code to python:3.9.16-slim as base image
-
-ENV PYTHONBUFFERED 1
-ENV PYTHONWRITEBYTECODE 1
-
-RUN apt-get update \
-    && apt-get install -y netcat
-
-ENV APP=/app
-
-# 2. insert code to change the working directory to $APP
-
-# 3. insert code to copy the requirements.txt file to $APP
-
-# 4. insert code to install requirements from requirements.txt
-
-# 5. insert code to copy the rest of the files into $APP
-
-# 6. insert code to expose the port here 
-
-RUN chmod +x /app/entrypoint.sh
-
-ENTRYPOINT ["/bin/bash","/app/entrypoint.sh"]
-
-# 7. insert code to set the run command to "python manage.py runserver 0.0.0.0:8000"
-
+FROM python:3.11-slim
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+RUN DJANGO_SECRET_KEY=build-only-placeholder python manage.py collectstatic --noinput && mkdir -p /data && chown -R 1001:0 /app /data && chmod -R g+rwX /app /data
+USER 1001
+EXPOSE 8000
+ENTRYPOINT ["/bin/sh", "/app/entrypoint.sh"]
+CMD ["gunicorn", "django_concert.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "4"]

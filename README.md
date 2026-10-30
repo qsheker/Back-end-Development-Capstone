@@ -1,136 +1,42 @@
-# Lab
+# Back-end-Development-Capstone
 
-1.  Clone git repo: `git clone https://github.com/ibm-developer-skills-network/sfvih-Back-end-Development-Capstone.git`
-2.  Get into the directory by `cd sfvih-Back-end-Development-Capstone`
-3.  Get into Django code `cd djangoserver`
-4.  Install requirements `pip install -r requirements.txt`
-5.  Run the server `python manage.py runserver`
-6.  It will tell you that you have unapplied migrations.
+Django band website built from IBM's official capstone template. It integrates the separate Pictures (Flask) and Songs (Flask/MongoDB) APIs, with account registration, login/logout, concert browsing, per-user attendance and cancellation, and concert administration.
 
-    **Migrations** are Django’s way of propagating changes you make to your models (adding a field, deleting a model, etc.) into your database schema. They’re designed to be mostly automatic, but you’ll need to know when to make migrations, when to run them, and the common problems you might run into. There are several commands which you will use to interact with migrations and Django’s handling of database schema:
+## Environment setup
 
-    1. **_migrate_**, which is responsible for applying and unapplying migrations.
-    2. **_makemigrations_**, which is responsible for creating new migrations based on the changes you have made to your models.
-    3. **_sqlmigrate_**, which displays the SQL statements for a migration.
-    4. **_showmigrations_**, which lists a project’s migrations and their status.
+Python 3.10+ is required; the container uses Python 3.11. Run `bash bin/setup.sh` and `source .venv/bin/activate`.
 
-7.  Create the initial migrations and generate the database schema:
+Create an untracked `.env` file with a fresh `DJANGO_SECRET_KEY`. Configure `SONGS_URL` and `PICTURES_URL`; local defaults are `http://127.0.0.1:5002` and `http://127.0.0.1:5001`.
 
-    ```shell
-    python manage.py makemigrations
-    python manage.py migrate
-    ```
-
-8.  Run server successfully this time: `python manage.py runserver`
-9.  Launch Application
-10. Click on Songs and Photos
-11. Click on Concerts, no existing Concert present
-12. Let's create admin user `python manage.py createsuperuser`
-    1. Username: `admin`
-    2. Email address: _leave blank, simply press enter_
-    3. Password: Your choice, or simply `qwerty123`
-13. Run the server again `python manage.py runserver` and goto admin: `http://localhost:8000/admin/`
-14. Enter the admin user details you created in previous step.
-15. Now you are in the admin section built by Django.
-
-    One of the most powerful parts of Django is the **automatic admin interface**. It reads metadata from your models to provide a quick, model-centric interface where trusted users can manage content on your site. The admin’s recommended use is limited to an organization’s internal management tool. It’s not intended for building your entire front end around.
-
-16. Add a Concert:
-    1. Concert name: `Coachella 2023`
-    2. Duration: `72`
-    3. City: `Indio, California`
-    4. Date: `2023-04-14`
-17. Click on `View Site` meny at the top
-18. Now if you visit `Concerts`, you will see Coachella listed.
-19. Our Django application is now running, but Songs and Photos are hard coded.
-20. Open `concert\views.py`
-21. See `songs` and `photos` definition.
-
-    1. Retrieve `songs` from a REST endpoint by replacing the code with following:
-
-    ```python
-    songs = req.get(
-        "https://raw.githubusercontent.com/captainfedoraskillup/private-get-songs/main/backend/data/songs.json").json()
-    return render(request, "songs.html", {"songs": songs})
-    ```
-
-    2. Retrieve `photos` from a REST endpoint by replacing the code with following:
-
-    ```python
-    photos = req.get(
-        "https://raw.githubusercontent.com/captainfedoraskillup/private-get-pictures/main/backend/data/pictures.json").json()
-    return render(request, "photos.html", {"photos": photos})
-    ```
-
-22. Verify Songs and Photos changes. Visit the Songs section, you will see a longer list of songs, clicking on each will show its Lyrics in a modal dialog. While going into Photos, you will see more than two.
-23. Now back to Concerts, click on the concert Coachella we created. You will see an RSVP page.
-24. RSVP Page shows you details of the Concert along with an option to either: Attend, Not Attend or no Option `-`.
-25. If you open `concert_detail.html`, you will see an html form:
-
-        ```html
-                <form action="{% url 'concert_attendee' %}" method="POST">
-                {% csrf_token %}
-                <input
-                  name="concert_id"
-                  type="number"
-                  value="{{concert_details.id}}"
-                  hidden="hidden"
-                />
-                <div class="input-group mb-3">
-                  <label class="input-group-text" for="attendee_choice">RSVP</label>
-                  <select class="form-select" name="attendee_choice" required>
-                    {% for attending_choice in attending_choices %}
-                      <option {% if attending_choice.0 == status %}selected {% endif %} value="{{ attending_choice.0 }}">{{ attending_choice.1 }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <input type="submit" class="btn btn-primary" />
-              </form>
-        ```
-
-26. On `Submit` of this form, the details are sent to `concert_attendee` in `concert\views.py`.
-27. It does two validations:
-    `if request.user.is_authenticated:` means whether the user is authenticated. Because anonymous users are not allowed to RSVP.
-    Then `if request.method == "POST":` to check whether it is an `HTTP POST` event.
-28. From the `body` of the `POST` method, it takes `concert_id` and `attendee_choice`.
-29. Then it checks, whether a selection was made previously, if yes, then update it. Otherwise insert new selection the databaes for this user.
-30. Finally, redirect the user.
-
-## Cleanup while testing
-
-```shell
-find . -path "*/migrations/*.py" -not -name "__init__.py" -delete
-find . -path "*/migrations/*.pyc"  -delete
-find . -path "*/db.sqlite3"  -delete
-python manage.py makemigrations
+```
 python manage.py migrate
-python manage.py runserver
+python manage.py seed_demo
+python manage.py collectstatic --noinput
+python manage.py runserver 127.0.0.1:8000
 ```
 
-##  To move the data from SQLite to MySQL
+Optional environment variables `DJANGO_SUPERUSER_USERNAME` and `DJANGO_SUPERUSER_PASSWORD` let `seed_demo` create the lab administrator. Existing users and edited concert records are preserved. Never commit this file or use a real personal password for the demo.
 
-Execute:
+## Application behavior
 
-`python manage.py dumpdata > datadump.json`
+Anonymous visitors can browse the band, songs, photographs and concerts. Signed-in users can RSVP, see their own attendance, and cancel a reservation. Mutations use POST and CSRF protection. Song lyrics open in a Bootstrap modal. Service timeouts and invalid responses show a temporary-unavailability message. Django admin can edit concert dates and details.
 
-Next, change your `settings.py` to the mysql database.
+`Photo` and `Song` are unmanaged course model projections: their source data belongs to the microservices, so Django does not create duplicate tables. Concert and attendance records are persisted in SQLite through checked-in migrations.
 
-Finally:
+## Validation
 
-`python manage.py loaddata datadump.json`
+`python manage.py test --verbosity 2`
 
-##  Containerize the application
-1. build a docker image
-    ```
-    docker build . -t concert
-    ```
-1. tag docker image with the correct registry information
-    ```
-    docker tag concert captainfedora/concert:v1
-    ```
-    The above command tags to `captainfedora` repository on dockerhub with the image name of `concert` and label of `v1`
+Seven tests cover authentication, unauthorized booking, duplicate RSVP prevention, isolated cancellation, invalid data, missing concerts, service responses/failure, and administrator edits. The final local integration also uses the live Pictures and Songs services with real MongoDB.
 
-1. Run the docker image to validate everything is working
-    ```
-    docker run -p 8000:8000 captainfedora/concert:v1
-    ```
+## Container and Kubernetes
+
+```
+docker build -t djangoserver .
+```
+
+The container runs as user 1001 with Gunicorn on port 8000 and WhiteNoise for static assets. Startup applies existing migrations and seeds missing demo records. Debug is disabled.
+
+The supplied `deployment.yml` uses one replica and the `DJANGO_IMAGE` placeholder. Render it with `envsubst` before applying. Create `django-config` with `SONGS_URL`, `PICTURES_URL`, `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS`, plus `django-secrets` with a generated secret key and lab administrator credentials. The Service maps port 8080 to 8000.
+
+This course deployment uses SQLite on an `emptyDir`: data survives container restarts but resets when its pod is replaced. Production use would need persistent storage/database, service authentication and platform-specific hardening. The public APIs contain only synthetic course fixtures.
