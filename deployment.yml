@@ -1,29 +1,63 @@
 apiVersion: apps/v1
-kind: # {insert kind here}
+kind: Deployment
 metadata:
-  labels:
-    run: djangoserver
   name: djangoserver
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       run: djangoserver
-  strategy:
-    rollingUpdate:
-      maxSurge: 25%
-      maxUnavailable: 25%
-    type: RollingUpdate
   template:
     metadata:
       labels:
         run: djangoserver
     spec:
+      securityContext:
+        runAsUser: 1001
+        runAsNonRoot: true
+        fsGroup: 1001
       containers:
-      - image: # {insert image here}
-        imagePullPolicy: Always
-        name: djangoserver
-        ports:
-        - containerPort: # {insert port here}
-          protocol: TCP
-      restartPolicy: Always
+        - name: djangoserver
+          image: ${DJANGO_IMAGE}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: django-secrets
+            - configMapRef:
+                name: django-config
+          env:
+            - name: DJANGO_DB_PATH
+              value: /data/db.sqlite3
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: '1'
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: djangoserver
+spec:
+  selector:
+    run: djangoserver
+  ports:
+    - port: 8080
+      targetPort: 8000
