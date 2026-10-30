@@ -39,4 +39,16 @@ The container runs as user 1001 with Gunicorn on port 8000 and WhiteNoise for st
 
 The supplied `deployment.yml` uses one replica and the `DJANGO_IMAGE` placeholder. Render it with `envsubst` before applying. Create `django-config` with `SONGS_URL`, `PICTURES_URL`, `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS`, plus `django-secrets` with a generated secret key and lab administrator credentials. The Service maps port 8080 to 8000.
 
+OpenShift restricts container IDs to the namespace's assigned range. Keep its SCC restrictions and the non-root requirement; adapt the deployment's UID and volume group using the supplied patch:
+
+```sh
+export OPENSHIFT_UID=$(oc get namespace "$(oc project -q)" -o jsonpath='{.metadata.annotations.openshift\.io/sa\.scc\.uid-range}' | cut -d/ -f1)
+export OPENSHIFT_GID=$(oc get namespace "$(oc project -q)" -o jsonpath='{.metadata.annotations.openshift\.io/sa\.scc\.supplemental-groups}' | cut -d/ -f1)
+test -n "$OPENSHIFT_UID" && test -n "$OPENSHIFT_GID"
+envsubst < openshift-security-context.yml > /tmp/django-openshift-patch.yml
+kubectl patch deployment djangoserver --type=merge --patch-file=/tmp/django-openshift-patch.yml
+```
+
+Use an HTTPS edge route for the Django UI and include its exact hostname in `DJANGO_ALLOWED_HOSTS` and its HTTPS origin in `DJANGO_CSRF_TRUSTED_ORIGINS`. Keep MongoDB internal. Within the OpenShift namespace, `SONGS_URL=http://songs:8080` uses the service directly.
+
 This course deployment uses SQLite on an `emptyDir`: data survives container restarts but resets when its pod is replaced. Production use would need persistent storage/database, service authentication and platform-specific hardening. The public APIs contain only synthetic course fixtures.
