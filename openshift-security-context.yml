@@ -1,0 +1,7 @@
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: ${OPENSHIFT_UID}
+        fsGroup: ${OPENSHIFT_GID}
